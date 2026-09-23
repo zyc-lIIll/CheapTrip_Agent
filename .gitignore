@@ -1,0 +1,40 @@
+# build output
+/target
+/web/node_modules/
+/web/dist/
+/web/*.tsbuildinfo
+/data/
+
+# local runtime configuration (copy from config.example.toml)
+/config.toml
+
+# secrets — never commit
+/.env
+/SECRETS.md
+
+# runtime session data (含个人出行信息)
+/sessions/
+
+# 生成的地图图片（运行时产物，含个人出行信息）
+/maps/
+
+# 本地 cargo 镜像覆盖（环境相关，不提交）
+/.cargo/
+
+# Node 依赖（酒店评论爬虫脚本，环境相关不提交；package-lock.json 保留）
+scripts/hotel_crawl/node_modules/
+
+# 系统杂项
+*.swp
+.DS_Store
+/xhs_login_qr.png
+
+# 答辩演示材料（本地，不提交）
+/docs/
+
+# 携程登录态（含账号 cookies，绝不入库）
+scripts/hotel_crawl/.ctrip-state.json
+/hotels/
+scripts/hotel_crawl/out/
+.toggles.json
+scripts/hotel_crawl/hotels/

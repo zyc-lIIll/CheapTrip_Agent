@@ -1,0 +1,30 @@
+{
+  "name": "cheaptrip-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "test": "node scripts/test-chat-model.mjs",
+    "typecheck": "tsc -b --pretty false",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.3",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}

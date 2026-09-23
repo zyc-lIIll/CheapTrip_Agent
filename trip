@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# 拾光者统一命令入口。
+set -Eeuo pipefail
+
+project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$project_dir"
+
+usage() {
+  cat <<'EOF'
+用法：./trip <命令> [参数]
+
+Web：
+  web domain              固定域名公网启动
+  web random              随机临时网址启动
+  web local               构建前端并本机启动
+  web dev                 Rust 后端 + Vite 开发服务
+
+其他：
+  tui                     启动 TUI
+  cli                     CLI 冒烟对话
+  setup [check]           配置向导 / 环境体检
+  verify                  Rust + Web 检查
+  clean test              清理测试产物
+  hotel install           安装酒店评论依赖和 Chromium
+  hotel login|logout|on|off|status
+  hotel crawl <id或URL> [参数...]
+  xhs login|logout|check|on|off|status
+  xhs token [新口令|off]
+  admin <子命令> [参数...]
+  help                    显示帮助
+EOF
+}
+
+die() {
+  printf '错误：%s\n\n' "$*" >&2
+  usage >&2
+  exit 2
+}
+
+need_command() {
+  command -v "$1" >/dev/null 2>&1 || {
+    printf '缺少命令：%s\n' "$1" >&2
+    exit 1
+  }
+}
+
+load_cargo_path() {
+  if [[ -f "$HOME/.cargo/env" ]]; then
+    # shellcheck disable=SC1090
+    source "$HOME/.cargo/env"
+  fi
+}
+
+kill_group() {
+  local pid="${1:-}"
+  [[ -n "$pid" ]] || return 0
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+  fi
+}
+
+run_dev() {
+  load_cargo_path
+  need_command cargo
+  need_command npm
+
+  local backend_pid="" frontend_pid="" exit_code=0
+  cleanup_dev() {
+    local status=$?
+    trap - EXIT INT TERM
+    kill_group "$frontend_pid"
+    kill_group "$backend_pid"
+    wait "$frontend_pid" 2>/dev/null || true
+    wait "$backend_pid" 2>/dev/null || true
+    if [[ "$status" -ne 0 ]]; then
+      exit "$status"
+    fi
+    exit "$exit_code"
+  }
+  trap cleanup_dev EXIT INT TERM
+
+  if command -v setsid >/dev/null 2>&1; then
+    setsid cargo run -- web &
+    backend_pid=$!
+    setsid npm --prefix web run dev &
+    frontend_pid=$!
+  else
+    cargo run -- web &
+    backend_pid=$!
+    npm --prefix web run dev &
+    frontend_pid=$!
+  fi
+
+  printf '开发模式已启动：Vite 通常在 http://127.0.0.1:5173\n'
+  printf '按 Ctrl+C 同时停止 Rust 后端和 Vite。\n'
+  while kill -0 "$backend_pid" 2>/dev/null && kill -0 "$frontend_pid" 2>/dev/null; do
+    sleep 1
+  done
+
+  if ! kill -0 "$backend_pid" 2>/dev/null; then
+    wait "$backend_pid" || exit_code=$?
+    printf 'Rust Web 已退出（退出码：%s）。\n' "$exit_code" >&2
+  else
+    wait "$frontend_pid" || exit_code=$?
+    printf 'Vite 已退出（退出码：%s）。\n' "$exit_code" >&2
+  fi
+  exit "$exit_code"
+}
+
+run_verify() {
+  load_cargo_path
+  need_command cargo
+  need_command npm
+  cargo fmt --check
+  cargo check
+  cargo clippy --all-targets --all-features -- -D warnings
+  cargo test
+  npm --prefix web test
+  npm --prefix web run typecheck
+  npm --prefix web run build
+}
+
+main() {
+  local command="${1:-help}"
+  shift || true
+
+  case "$command" in
+    help|-h|--help)
+      [[ "$#" -eq 0 ]] || die "help 不接受额外参数"
+      usage
+      ;;
+    web)
+      [[ "$#" -eq 1 ]] || die "用法：./trip web domain|random|local|dev"
+      case "$1" in
+        local|domain|random) exec bash scripts/run-trip.sh "$1" ;;
+        dev) run_dev ;;
+        *) die "未知 Web 模式：$1" ;;
+      esac
+      ;;
+    tui)
+      [[ "$#" -eq 0 ]] || die "tui 不接受额外参数"
+      load_cargo_path; need_command cargo; exec cargo run -- TUI
+      ;;
+    cli)
+      [[ "$#" -eq 0 ]] || die "cli 不接受额外参数"
+      load_cargo_path; need_command cargo; exec cargo run
+      ;;
+    setup)
+      case "${1:-}" in
+        '') [[ "$#" -eq 0 ]] || die "用法：./trip setup [check]"; load_cargo_path; exec bash scripts/setup.sh ;;
+        check) [[ "$#" -eq 1 ]] || die "用法：./trip setup [check]"; load_cargo_path; exec bash scripts/setup.sh --check ;;
+        *) die "未知 setup 参数：$1" ;;
+      esac
+      ;;
+    verify)
+      [[ "$#" -eq 0 ]] || die "verify 不接受额外参数"
+      run_verify
+      ;;
+    clean)
+      [[ "${1:-}" == test && "$#" -eq 1 ]] || die "用法：./trip clean test"
+      load_cargo_path; need_command cargo; exec cargo run -- clean-test
+      ;;
+    hotel)
+      [[ "$#" -ge 1 ]] || die "用法：./trip hotel install|login|logout|on|off|status|crawl ..."
+      local hotel_command="$1"; shift
+      load_cargo_path
+      case "$hotel_command" in
+        install)
+          [[ "$#" -eq 0 ]] || die "hotel install 不接受额外参数"
+          need_command npm
+          npm --prefix scripts/hotel_crawl install
+          (cd scripts/hotel_crawl && npx playwright install chromium)
+          ;;
+        login|logout|on|off|status)
+          [[ "$#" -eq 0 ]] || die "hotel $hotel_command 不接受额外参数"
+          need_command cargo; exec cargo run -- hotel "$hotel_command"
+          ;;
+        crawl)
+          [[ "$#" -ge 1 ]] || die "用法：./trip hotel crawl <id或URL> [参数...]"
+          need_command node; exec node scripts/hotel_crawl/crawl.mjs "$@"
+          ;;
+        *) die "未知 hotel 命令：$hotel_command" ;;
+      esac
+      ;;
+    xhs)
+      [[ "$#" -ge 1 ]] || die "用法：./trip xhs login|logout|check|on|off|status|token ..."
+      local xhs_command="$1"; shift
+      case "$xhs_command" in
+        login|logout|check|token)
+          exec bash scripts/xhs-login.sh "$xhs_command" "$@"
+          ;;
+        on|off|status)
+          [[ "$#" -eq 0 ]] || die "xhs $xhs_command 不接受额外参数"
+          load_cargo_path; need_command cargo; exec cargo run -- xhs "$xhs_command"
+          ;;
+        *) die "未知 xhs 命令：$xhs_command" ;;
+      esac
+      ;;
+    admin)
+      load_cargo_path; need_command cargo; exec cargo run -- admin "$@"
+      ;;
+    *)
+      die "未知命令：$command"
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,0 +1,38 @@
+[package]
+name = "cheaptrip"
+version = "2.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "sync", "time"] }
+axum = { version = "0.8", features = ["ws"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = ["fs", "cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+toml = "0.8"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dotenvy = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+async-trait = "0.1"
+futures = "0.3"
+async-stream = "0.3"
+tokio-util = "0.7"
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+unicode-width = "0.2"
+image = "0.25"
+imageproc = "0.25"
+ab_glyph = "0.2"
+staticmap = "0.4"
+argon2 = "0.6"
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+tower-sessions = "0.14"
+tower-sessions-sqlx-store = { version = "0.15", features = ["sqlite"] }
+time = "0.3"
+
+[dev-dependencies]
+tokio-tungstenite = "0.30.0"

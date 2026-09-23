@@ -1,0 +1,76 @@
+# cheaptrip 默认配置模板（R3：模型与参数可配置，不写死）
+# 首次运行：cp config.example.toml config.toml
+# config.toml 是本机配置且已被 Git 忽略；API key 不放这里，只存环境变量名，真实值放 .env。
+
+# ---- LLM ----
+[llm]
+# 任意 OpenAI 兼容端点
+base_url = "https://llmapi.paratera.com"
+model = "GLM-5.3-Flash"
+# 请求供应商：auto 自动识别 GLM，其余使用通用 OpenAI-compatible；也可显式填 glm/openai_compatible
+provider = "auto"
+# GLM-5.3-Flash 思考强度：low / high / max（模型始终思考，不提供关闭选项）
+reasoning_effort = "max"
+# 从该环境变量读 API key（不存真实值）
+api_key_env = "API_KEY"
+temperature = 0.7
+max_tokens = 8192
+# 连接建立超时（秒）
+connect_timeout_secs = 10
+# 空闲读取超时（秒）：连续无数据才计时，流式输出每个数据块到达即重置；
+# 0 = 关闭。思考型模型若不流式输出思考内容，请调大此值
+read_timeout_secs = 60
+
+# ---- 费用（R6：UI 实时显示累计费用）----
+[cost]
+# 每百万 token 人民币价，按你账号实际单价填
+input_per_1m = 0.4
+output_per_1m = 1.4
+
+# ---- 会话管理（R5：防内存膨胀；不写或删掉 = 不限）----
+[session]
+max_messages = 100    # 单会话最多保留最近多少条消息（启动时裁剪）
+max_sessions = 10     # 非临时会话最多保留多少个（启动时清理旧的；cli 永久保留）
+
+# ---- 小红书（可选：xiaohongshu-mcp 本机服务，默认关闭）----
+# 前置：本机运行 xiaohongshu-mcp 服务并用小红书 App 扫码登录
+#   Docker: docker pull xpzouying/xiaohongshu-mcp && docker run -p 18060:18060 xpzouying/xiaohongshu-mcp
+#   或编译 Go 二进制运行（首次用其登录工具扫码）
+# enabled=true 时注册 search_xhs / read_xhs_note 两工具（只读，不含发布/评论/关注）
+[xhs]
+enabled = false
+url = "http://localhost:18060/mcp"
+# 服务开启 Bearer 认证时，从哪个环境变量读 token（值放 .env，见 .env.example）
+token_env = "XHS_MCP_TOKEN"
+# 拟人限流：相邻 MCP 调用间隔 = min_interval_ms + rand(0..jitter_ms)（防风控，勿调太小）
+min_interval_ms = 8000
+jitter_ms = 7000
+
+# ---- Web 服务（M0：axum 包 Core；./trip web local 启动）----
+[web]
+# 监听地址；默认仅本机。挂 cloudflared 隧道/公网前建议保持 127.0.0.1
+bind = "127.0.0.1:8080"
+# 访问口令从哪个环境变量读取（真实值放 .env，不进仓库）
+# 变量不存在或值为空 = 不校验（仅本机开发）；隧道/公网暴露前必须设置
+token_env = "WEB_TOKEN"
+# 全局同时在跑的 agent 轮数上限（第 3 个请求排队）
+max_concurrent = 2
+# 只填写真正跨域的前端来源；Rust 同源页面会根据 Host 自动放行
+cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# React 生产构建产物目录；./trip web local 会先构建并托管正式页面
+static_dir = "web/dist"
+
+# ---- 账号认证（M2；首次启用前请先运行 admin init）----
+[auth]
+# 默认关闭，避免新安装尚未创建管理员时把自己锁在登录页外
+enabled = false
+database_url = "sqlite://data/cheaptrip.db"
+cookie_name = "cheaptrip_session"
+session_ttl_hours = 168
+# 正式 HTTPS 部署必须改为 true；本机 HTTP 开发保持 false
+secure_cookie = false
+# 连续登录失败达到 5 次后锁定 300 秒
+max_login_failures = 5
+lockout_secs = 300
+
+# 地图工具的 CJK 字体路径在 .env 的 MAP_FONT_PATH 中配置（环境相关，不入仓库）
