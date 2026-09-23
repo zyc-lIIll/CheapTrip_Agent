@@ -2,6 +2,7 @@
 name = "cheaptrip"
 version = "2.1.0"
 edition = "2024"
+license = "AGPL-3.0-only"
 
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "sync", "time"] }
