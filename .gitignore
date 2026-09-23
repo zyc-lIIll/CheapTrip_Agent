@@ -38,3 +38,5 @@ scripts/hotel_crawl/.ctrip-state.json
 scripts/hotel_crawl/out/
 .toggles.json
 scripts/hotel_crawl/hotels/
+
+/cheaptrip-private-history-20260923.bundle
